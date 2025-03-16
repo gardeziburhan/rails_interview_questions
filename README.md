@@ -365,3 +365,208 @@ Partial _article.html.erb:
 
 <h2><%= article.title %></h2>
 ```
+
+#### 20. What is link_to in Rails views?
+link_to is a Rails helper method that generates HTML anchor (<a>) tags dynamically.
+
+Basic Usage:
+
+```
+<%= link_to "Home", root_path %>
+Generates:
+
+<a href="/">Home</a>
+Follow-up: How can you make link_to submit a form?
+link_to can be used to send DELETE/POST/PUT requests by specifying the method and adding data: { confirm: "Message" }.
+
+<%= link_to "Delete", article_path(@article), method: :delete, data: { confirm: "Are you sure?" } %>
+Generates:
+<a href="/articles/1" data-method="delete" data-confirm="Are you sure?">Delete</a>
+Rails uses JavaScript (UJS) to convert this into a DELETE request.
+```
+
+#### 21. What is form_with, and how does it work?
+form_with is a Rails helper used to generate forms dynamically.
+
+Basic Example:
+```
+<%= form_with model: @article, local: true do |f| %>
+  <%= f.text_field :title %>
+  <%= f.submit "Save" %>
+<% end %>
+This generates:
+<form action="/articles" method="post">
+  <input type="text" name="article[title]">
+  <input type="submit" value="Save">
+</form>
+local: true prevents AJAX submissions.
+
+```
+### 22. What is a partial in Rails views?
+A partial is a reusable view component that helps avoid duplication.
+
+Example:
+Create _article.html.erb:
+```
+<div class="article">
+  <h2><%= article.title %></h2>
+  <p><%= article.content %></p>
+</div>
+Use it in another view:
+<%= render "article", article: @article %>
+Follow-up: How do you pass local variables to a partial?
+<%= render "article", article: @article %>
+Inside _article.html.erb:
+<h2><%= article.title %></h2>
+```
+#### 23. What is layout in Rails, and how do you use it?
+Layouts define a common structure for multiple views.
+
+Example app/views/layouts/application.html.erb:
+```
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My App</title>
+</head>
+<body>
+  <%= yield %>
+</body>
+</html>
+Each view injects its content into <%= yield %>.
+```
+#### 24. What is yield, and how does it work in Rails layouts?
+yield acts as a placeholder for page-specific content inside a layout.
+
+Example app/views/layouts/application.html.erb:
+```
+<html>
+<head><title>My App</title></head>
+<body>
+  <%= yield %> <!-- Page-specific content goes here -->
+</body>
+</html>
+Usage in app/views/articles/index.html.erb:
+
+<h1>All Articles</h1>
+Final Rendered Output:
+
+<html>
+<head><title>My App</title></head>
+<body>
+  <h1>All Articles</h1>
+</body>
+</html>
+```
+
+#### 25. What are helpers in Rails?
+Helpers are Ruby methods used in views to keep logic out of templates.
+
+Example Helper (app/helpers/articles_helper.rb):
+```
+module ArticlesHelper
+  def formatted_date(date)
+    date.strftime("%B %d, %Y")
+  end
+end
+Usage in a view:
+
+<p>Published on <%= formatted_date(@article.created_at) %></p>
+```
+Follow-up: When should you use a helper vs. a partial?
+
+Use Case	    Helper	Partial
+Formatting data	✅ Yes	❌ No
+Repeating view elements	❌ No	✅ Yes
+
+#### 26. What is params in Rails, and how does it work?
+params stores request data (e.g., form inputs, URL parameters).
+
+Example Controller:
+```
+class ArticlesController < ApplicationController
+  def show
+    @article = Article.find(params[:id]) # Fetch from URL
+  end
+
+  def create
+    @article = Article.new(params.require(:article).permit(:title, :content)) # Form Data
+  end
+end
+```
+
+#### 27. What is the difference between GET, POST, PUT, and DELETE requests in Rails?
+HTTP Method	Purpose	Example Usage
+GET	Read data	GET /articles/1
+POST	Create data	POST /articles
+PUT	Update entire record	PUT /articles/1
+DELETE	Delete a record	DELETE /articles/1
+
+
+#### 28. What is rails routes, and how do you use it?
+Lists all available routes in a Rails app.
+```
+rails routes
+Example Output:
+
+articles GET  /articles(.:format)  articles#index
+```
+
+#### 29. What is has_many :through, and when do you use it?
+It sets up a many-to-many relationship via a join table.
+```
+class User < ApplicationRecord
+  has_many :user_projects
+  has_many :projects, through: :user_projects
+end
+
+class UserProject < ApplicationRecord
+  belongs_to :user
+  belongs_to :project
+end
+
+class Project < ApplicationRecord
+  has_many :user_projects
+  has_many :users, through: :user_projects
+end
+```
+
+#### 30. What is validates in Rails models?
+validates ensures data integrity before saving records.
+
+class User < ApplicationRecord
+  validates :name, presence: true, length: { minimum: 3 }
+  validates :email, uniqueness: true
+end
+Follow-up: What are some common validation options?
+Validation	Example
+presence: true	Ensures value is present
+uniqueness: true	Ensures unique values
+length: { minimum: x }	Min character length
+format: { with: /regex/ }	Custom regex validation
+
+
+#### 31. What is rescue_from, and how does it work?
+rescue_from handles exceptions globally in controllers.
+```
+class ApplicationController < ActionController::Base
+  rescue_from ActiveRecord::RecordNotFound, with: :not_found
+
+  private
+
+  def not_found
+    render plain: "404 Not Found", status: :not_found
+  end
+end
+```
+
+#### 32. What is rake, and how does it work in Rails?
+Rake (Ruby Make) automates tasks like migrations and seeding.
+```
+rake db:migrate
+rake db:seed
+Follow-up: What is the difference between rake and rails commands?
+Command	Purpose
+rake	Runs tasks (e.g., migrations)
+rails	Runs commands (e.g., server, console)
+```
