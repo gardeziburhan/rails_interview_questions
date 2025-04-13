@@ -259,8 +259,8 @@ Rails.application.routes.draw do
 end
 Follow-up: What is the difference between resources and resource?
 Method	    Routes   Generated        	Example
-resources :users	Creates 7 RESTful routes (index, show, new, create, edit, update, destroy)	GET /users/:id/edit
-resource :profile	Creates only one route per action (no index route)	GET /profile/edit
+resources :users	Creates 7 RESTful routes (index, show, new, create, , update, destroy)	GET /users/:id/
+resource :profile	Creates only one route per action (no index route)	GET /profile/
 ```
 
 #### 13. How do you generate a model, controller, and migration in Rails?
@@ -570,3 +570,851 @@ Command	Purpose
 rake	Runs tasks (e.g., migrations)
 rails	Runs commands (e.g., server, console)
 ```
+
+#### 🛠 1. Handling N+1 Queries (Optimization)
+❌ Problem:
+```
+users = User.all
+users.each do |user|
+  puts user.posts.count
+end
+```
+This results in one query per user, leading to an N+1 query issue.
+
+✅ Solution: Use includes for Eager Loading
+```
+users = User.includes(:posts)  # Fetch users & posts in 1 query
+users.each do |user|
+  puts user.posts.count  # Does not make extra queries
+end
+```
+👉 includes loads the associated records efficiently.
+
+#### 🛠 2. Implementing Caching in Rails
+🔹 Fragment Caching
+```
+<% cache @article do %>
+  <h1><%= @article.title %></h1>
+  <p><%= @article.content %></p>
+<% end %>
+```
+👉 Caches the HTML output of the article block.
+🔹 Low-Level Caching
+```
+Rails.cache.fetch("recent_articles", expires_in: 10.minutes) do
+  Article.order(created_at: :desc).limit(5)
+end
+```
+👉 Caches query results for 10 minutes.
+
+
+
+🚀 𝗟𝗲𝘃𝗲𝗹 𝗨𝗽 𝗬𝗼𝘂𝗿 𝗥𝗮𝗶𝗹𝘀 𝗞𝗻𝗼𝘄𝗹𝗲𝗱𝗴𝗲 𝘄𝗶𝘁𝗵 𝗧𝗵𝗲𝘀𝗲 𝗜𝗻𝘁𝗲𝗿𝘃𝗶𝗲𝘄 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀 🚀
+
+#### 5. When to Use Proc vs. Lambda
+Feature	    Proc	                                                  Lambda
+Arity       Check	Allows missing arguments (defaults to nil).	      Strictly enforces the number of arguments.
+Return      Behavior	Exits the method immediately.	                Returns control to the method.
+Use Case	  Flexible argument handling, quick inline logic.	        Function-like behavior with strict argument handling.
+
+#### 6. Real-World Use Cases
+```
+Using Proc in Dynamic Method Execution
+
+def perform_action(action)
+  actions = {
+    greet: Proc.new { puts "Hello!" },
+    farewell: Proc.new { puts "Goodbye!" }
+  }
+  actions[action].call if actions[action]
+end
+
+perform_action(:greet)    # Output: "Hello!"
+perform_action(:farewell) # Output: "Goodbye!"
+```
+Using Lambda for Strict Validations
+```
+validate_input = ->(name, age) {
+  raise "Invalid name" if name.nil? || name.empty?
+  raise "Invalid age" if age < 18
+  "Welcome, #{name}!"
+}
+
+puts validate_input.call("Alice", 20)  # ✅ Output: "Welcome, Alice!"
+puts validate_input.call("", 25)       # ❌ Raises error "Invalid name"
+```
+
+#### Summary
+```
+Feature	                      Proc (Proc.new)	                                        Lambda (-> {})
+Arity (Arguments Handling)	  Doesn't enforce argument count (missing args = nil).	  Strict argument checking (errors if missing).
+Return Behavior	              Exits the calling method immediately.	                  Returns control to the calling method.
+Use Case	                    When flexibility is needed.	                            When strict function-like behavior is required.
+```
+
+💡 TL;DR
+Use Procs when you want loose argument handling and early exit behavior.
+
+Use Lambdas when you want strict function-like execution.
+
+
+#### Explain Sharding ?
+Sharding is a database partitioning technique that distributes data across multiple databases or servers to improve performance, scalability, and availability. Instead of storing all records in a single database, data is split (sharded) into multiple databases based on a specific key (e.g., user ID, region, tenant).
+
+ #### Why Use Sharding?
+#### ✅ Benefits of Sharding
+Scalability –            Distributes load across multiple database instances.
+
+Performance –            Reduces query time by limiting the data each query scans.
+
+Fault Tolerance –        Failure in one shard doesn’t affect others.
+
+Multi-tenancy Support – Different customers (tenants) can be stored in separate databases.
+
+
+#### How Does Sharding Work in Rails?
+Rails 6+ provides built-in support for database sharding using the multiple databases feature (config/database.yml).
+
+Example: User Data Sharded Across Multiple Databases
+```
+# config/database.yml
+production:
+  primary:
+    adapter: postgresql
+    database: main_db
+    host: db1.example.com
+  shard_1:
+    adapter: postgresql
+    database: shard1_db
+    host: db2.example.com
+  shard_2:
+    adapter: postgresql
+    database: shard2_db
+    host: db3.example.com
+Each database (shard_1, shard_2) contains a subset of the total records.
+```
+#### 🔹 Implementing Sharding in Rails
+Step 1: Define Database Connections
+Modify database.yml to add shard configurations.
+
+Step 2: Switch Between Shards in Models
+Use connects_to in the model:
+```
+class User < ApplicationRecord
+  connects_to database: { writing: :shard_1, reading: :shard_1 }
+end
+```
+Step 3: Manually Switch Shards in Queries
+```
+ActiveRecord::Base.connected_to(role: :writing, shard: :shard_1) do
+  User.create(name: "Alice")
+end
+```
+Step 4: Auto-Route Requests Based on Shard Key
+Example: Shard based on user region.
+```
+def set_shard
+  user_region = params[:region]  # Example: "asia"
+  shard = "shard_#{user_region}"
+  ActiveRecord::Base.connected_to(role: :writing, shard: shard) do
+    yield
+  end
+end
+```
+This method automatically connects to the appropriate shard.
+
+#### When to Use Sharding?
+Use Case	                                              Should You Use Sharding?
+Millions of rows per table	                            ✅ Yes
+Multi-tenancy (separate databases per customer)	        ✅ Yes
+Geo-distributed applications	                          ✅ Yes
+Simple CRUD apps with low traffic	                      ❌ No
+Short-term performance issues (use indexing instead)	  ❌ No
+
+Alternatives to Sharding
+Read Replicas – Separate read and write databases (primary, replica).
+
+Partitioning – Store different data segments in the same database (PostgreSQL table partitioning).
+
+TL;DR
+Sharding splits data across multiple databases to improve performance and scalability.
+
+Rails 6+ supports multi-database configurations (connects_to, connected_to).
+
+Use sharding when dealing with high-volume, multi-tenant, or geographically distributed applications.
+
+
+### 🛠 Core Rails Questions
+#### How does Rails handle database connection pooling?
+#### Explain the difference between joins, includes, preload, and eager_load.
+#### How does Rails’ autoloading work? What changed in Zeitwerk?
+#### What are ActiveRecord callbacks? When should you avoid them?
+#### What are ActiveSupport Concerns? How do they differ from modules?
+#### What is the purpose of Rails engines? When would you use one?
+#### How does Rails handle has_many :through vs. has_and_belongs_to_many?
+#### What’s the difference between belongs_to and has_one?
+#### What are Rails observers, and why are they deprecated?
+#### How does the Rails asset pipeline work?
+#### What are different ways to manage configurations in Rails (secrets.yml, credentials.yml.enc, ENV variables)?
+#### What is the difference between dependent: :destroy, dependent: :delete_all, and dependent: :nullify?
+#### How do you implement state machines in Rails (e.g., AASM, workflow gem)?
+#### What’s the difference between rake and rails commands?
+#### What are concerns, and when should they be used?
+
+### ⚡ Performance & Scalability
+#### What techniques do you use to prevent N+1 queries?
+#### What is database sharding? How does Rails support it?
+#### How do you analyze slow database queries in Rails?
+#### What is caching in Rails? How does fragment caching work?
+#### How do you handle background jobs at scale in Rails?
+#### What are the advantages and disadvantages of Sidekiq vs. Delayed Job vs. Resque?
+#### What is a Rails middleware? How do you add a custom middleware?
+#### How do you scale a Rails application to handle high traffic?
+#### What are different types of caching available in Rails?
+#### What is Puma? How does it improve Rails performance?
+#### How does Rails handle HTTP/2 and WebSockets?
+#### What are the best practices for optimizing ActiveRecord queries?
+#### What’s the difference between connection_pool and database.yml settings?
+#### How do you handle large file uploads in Rails?
+#### What’s the difference between synchronous and asynchronous processing in Rails?⚡ Performance & Scalability
+#### What techniques do you use to prevent N+1 queries?
+#### What is database sharding? How does Rails support it?
+#### How do you analyze slow database queries in Rails?
+#### What is caching in Rails? How does fragment caching work?
+#### How do you handle background jobs at scale in Rails?
+#### What are the advantages and disadvantages of Sidekiq vs. Delayed Job vs. Resque?
+#### What is a Rails middleware? How do you add a custom middleware?
+#### How do you scale a Rails application to handle high traffic?
+#### What are different types of caching available in Rails?
+#### What is Puma? How does it improve Rails performance?
+#### How does Rails handle HTTP/2 and WebSockets?
+#### What are the best practices for optimizing ActiveRecord queries?
+#### What’s the difference between connection_pool and database.yml settings?
+#### How do you handle large file uploads in Rails?
+#### What’s the difference between synchronous and asynchronous processing in Rails?
+
+### 🛡️ Security & Best Practices
+#### What is CSRF, and how does Rails prevent it?
+#### What is SQL injection? How does Rails prevent it?
+#### How does Rails handle Cross-Site Scripting (XSS) vulnerabilities?
+#### What is mass assignment, and how can it be prevented?
+#### What is the difference between strong_parameters and attr_accessible?
+#### What is session fixation, and how does Rails mitigate it?
+#### What is secure_compare and why is it important?
+#### How do you prevent brute-force attacks in Rails authentication?
+#### How does Devise handle authentication and security?
+#### What are Rails' default security mechanisms (e.g., Secure Headers, HTTP-only cookies)?
+#### How do you enforce password policies in Rails apps?
+#### What is parameter tampering, and how does Rails prevent it?
+#### How do you secure Rails APIs (rate limiting, JWT, OAuth)?
+#### What is the difference between session_store and cookie_store?
+#### What is CORS, and how does Rails handle it?
+#### What is permanent_signed vs. signed cookies in Rails?
+#### How do you handle authorization (Pundit vs. CanCanCan)?
+#### How do you prevent replay attacks in Rails?
+#### What is rails-ujs, and how does it help with security?
+#### How do you enforce HTTPS in a Rails application?
+
+### 🛠 System Design & Architecture
+#### What is REST, and how does Rails enforce RESTful design?
+#### How do you implement API versioning in Rails?
+#### What are the key differences between REST and GraphQL?
+#### How would you design a multi-tenant Rails application?
+#### How does Rails handle WebSockets and real-time features?
+#### How do you design a microservices-based architecture with Rails?
+#### What are the trade-offs of monolithic vs. microservices architecture in Rails?
+#### What are design considerations for building a large-scale Rails API?
+#### How do you handle background jobs in a multi-server environment?
+#### How do you handle file storage in Rails (ActiveStorage, Shrine, Paperclip)?
+#### What is CQRS, and how can it be applied in Rails applications?
+#### How do you handle rate-limiting in Rails APIs?
+#### What are the challenges of running Rails in a containerized environment (Docker, Kubernetes)?
+#### How would you handle real-time notifications in Rails?
+#### How do you implement event-driven architecture in Rails?
+#### What are the key performance bottlenecks in a Rails application?
+#### What are the key differences between Rails and other frameworks like Django or Laravel?
+#### How do you handle service-to-service authentication in a Rails microservices setup?
+#### How do you optimize database indexes for large-scale Rails applications?
+#### How would you design a rate-limiting system in Rails?🛠 System Design & Architecture
+#### What is REST, and how does Rails enforce RESTful design?
+#### How do you implement API versioning in Rails?
+#### What are the key differences between REST and GraphQL?
+#### How would you design a multi-tenant Rails application?
+#### How does Rails handle WebSockets and real-time features?
+#### How do you design a microservices-based architecture with Rails?
+#### What are the trade-offs of monolithic vs. microservices architecture in Rails?
+#### What are design considerations for building a large-scale Rails API?
+#### How do you handle background jobs in a multi-server environment?
+#### How do you handle file storage in Rails (ActiveStorage, Shrine, Paperclip)?
+#### What is CQRS, and how can it be applied in Rails applications?
+#### How do you handle rate-limiting in Rails APIs?
+#### What are the challenges of running Rails in a containerized environment (Docker, Kubernetes)?
+#### How would you handle real-time notifications in Rails?
+#### How do you implement event-driven architecture in Rails?
+#### What are the key performance bottlenecks in a Rails application?
+#### What are the key differences between Rails and other frameworks like Django or Laravel?
+#### How do you handle service-to-service authentication in a Rails microservices setup?
+#### How do you optimize database indexes for large-scale Rails applications?
+#### How would you design a rate-limiting system in Rails?
+
+### 💎 Advanced Ruby Questions
+#### What is the difference between Proc and Lambda?
+#### What is the difference between include, extend, and prepend?
+#### How does Ruby garbage collection (GC) work?
+#### What is the difference between Thread and Fiber?
+#### What are Ruby metaprogramming techniques?
+#### What are method_missing and respond_to_missing?
+#### What are singleton classes and eigenclasses in Ruby?
+#### What is duck typing in Ruby?
+#### How does Ruby handle method lookup and method resolution order (MRO)?
+#### How does module_function work in Ruby?
+#### What is the difference between public, private, and protected methods?
+#### What is the difference between class_variable, instance_variable, and global_variable?
+#### What is monkey patching, and when should you avoid it?
+#### What are refinements in Ruby?
+#### How do you implement multiple inheritance in Ruby?
+#### What is the difference between super and self?
+#### How does define_method work in Ruby?
+#### What is method_missing, and how can it be useful?
+#### What is a Ruby block, and how is it different from a Proc?
+#### What is the difference between tap, yield_self, and then in Ruby?
+
+
+### 📌 Live Coding Challenge Questions
+#### Implement a caching mechanism in Rails without using built-in Rails caching.
+#### Optimize a slow SQL query in a Rails application.
+#### Write a background job that sends scheduled emails using Sidekiq.
+#### Write a Rails service object that processes and validates a CSV file upload.
+#### Refactor a Rails controller that has too many instance variables.
+#### Write a Rails middleware that logs request details before passing it to the controller.
+#### Write a method that finds all duplicate users based on their email in ActiveRecord.
+#### Design a system to throttle API requests in Rails without using third-party gems.
+#### Implement an authentication system without Devise in Rails.
+#### Write a custom ActiveRecord scope that returns all users who haven’t logged in for 30 days.
+
+
+
+### 𝗜𝗻𝘁𝗲𝗿𝗺𝗲𝗱𝗶𝗮𝘁𝗲 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀 -:
+#### 1. How do you handle exceptions and errors in Rails? What strategies do you use for logging and notification?
+#### 2. How do you approach database modeling in Rails? What considerations do you take for efficient data retrieval and storage?
+#### 3. How do you use Rails migrations to manage database schema changes? What are some best practices for writing migrations?
+#### 4. What caching mechanisms does Rails offer (fragment, action, and page caching), and when would you use each?
+#### 5. How do you design RESTful APIs in Rails? What considerations do you take for API versioning and security?
+#### 6. How do you use service objects to encapsulate business logic in Rails? What benefits do they offer?
+#### 7. How do you define nested routes in Rails? What are some advanced routing techniques such as shallow routes?
+#### 8. Explain polymorphic associations in Rails. When would you choose them over standard associations?
+
+### 𝗔𝗱𝘃𝗮𝗻𝗰𝗲𝗱 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀 -:
+
+#### 9. How do you tackle the N+1 query problem in Rails? What tools or techniques do you use to optimize queries?
+#### 10. How do you handle database transactions in Rails? What steps do you take to optimize database performance through indexing and query tuning?
+#### 11. How would you manage caching in a high-traffic, distributed Rails environment? Discuss the use of fragment, action, and page caching.
+#### 12. Discuss Rails’ built-in security features. How do you mitigate risks like CSRF, XSS, and SQL injection?
+#### 13. How do you design, secure, and version API endpoints in Rails? What are your thoughts on REST vs. GraphQL?
+#### 14. What architectural patterns have you implemented to ensure a Rails application scales? Discuss multi-tenancy or micro-services if applicable.
+#### 15. How do you address concurrency in Rails? Have you encountered and solved challenges with multi-threading?
+#### 16. What is sharding, and how can it be implemented in Rails to optimise data access for large datasets?
+#### 17. What testing frameworks and strategies (unit, integration, performance) do you rely on in Rails? How do you ensure comprehensive test coverage?
+#### 18. Describe your experience implementing real-time features using Action Cable. What challenges did you encounter?
+#### 19. How do you approach refactoring a large, legacy Rails codebase without causing disruptions? What tools or methodologies do you use?
+#### 20. Have you worked with Rails 6/7 features such as ActionMailbox, ActionText, or Hotwire? How have they influenced your development process?
+#### 21. How do you use service objects or decorators to encapsulate business logic? Share your experiences with Ruby’s meta-programming capabilities.
+#### 22. What role does Rack play in Rails? Have you ever built custom middleware? If so, how?
+#### 23. How do you analyze and optimize database queries in Rails? What tools do you use to identify performance bottlenecks? 
+
+
+#### How does Rails handle database connection pooling?
+#### Explain the difference between joins, includes, preload, and eager_load.
+#### How does Rails’ autoloading work? What changed in Zeitwerk?
+#### What are ActiveRecord callbacks? When should you avoid them?
+#### What are ActiveSupport Concerns? How do they differ from modules?
+#### What is the purpose of Rails engines? When would you use one?
+#### How does Rails handle has_many :through vs. has_and_belongs_to_many?
+#### What’s the difference between belongs_to and has_one?
+#### What are Rails observers, and why are they deprecated?
+#### How does the Rails asset pipeline work?
+#### What are different ways to manage configurations in Rails (secrets.yml, credentials.yml.enc, ENV variables)?
+#### What is the difference between dependent: :destroy, dependent: :delete_all, and dependent: :nullify?
+#### How do you implement state machines in Rails (e.g., AASM, workflow gem)?
+#### What’s the difference between rake and rails commands?
+#### What are concerns, and when should they be used?
+
+
+
+
+
+### 🧠 Problem 1: Dynamic Method Generation (Metaprogramming)
+Challenge: Write a class CurrencyConverter that dynamically defines methods like to_usd, to_eur, to_gbp, and converts from a base amount in cents (as integer) to those currencies using given exchange rates.
+
+### 🧠 Problem 2: Lazy Prime Generator (Enumerators)
+Challenge: Write a method lazy_primes(n) that lazily generates the first n prime numbers using Ruby's enumerators.
+
+### 🧠 Problem 3: Safe Concurrency with Threads
+Challenge: Create a counter that increments safely from multiple threads (simulate 100 threads incrementing a shared counter 1000 times each). Use a mutex to avoid race conditions.
+
+
+### 🚀 Intermediate Rails Questions
+#### 1. Handling Exceptions & Logging
+Use rescue_from in controllers to handle specific exceptions:
+```
+class ApplicationController < ActionController::Base
+  rescue_from ActiveRecord::RecordNotFound, with: :not_found
+  rescue_from StandardError, with: :handle_error
+
+  private
+
+  def not_found
+    render json: { error: "Record not found" }, status: :not_found
+  end
+
+  def handle_error(exception)
+    Rails.logger.error(exception.message)
+    render json: { error: "Something went wrong" }, status: :internal_server_error
+  end
+end
+```
+Use Rollbar, Sentry, or Bugsnag for error notifications.
+
+#### 2. Database Modeling Considerations
+Normalize data when needed (e.g., extract a tags table if storing repeated text).
+Use indexes for faster lookups (add_index :users, :email, unique: true).
+Optimize eager loading to avoid N+1 queries.
+
+#### 3. Managing Migrations
+Keep migrations idempotent (avoid destructive changes in production).
+
+Use change method over up and down unless a complex rollback is needed.
+Example:
+```
+class AddIndexToUsers < ActiveRecord::Migration[7.0]
+  def change
+    add_index :users, :email, unique: true
+  end
+end
+```
+#### 4. Caching Mechanisms
+Page Caching: Stores full HTML response (caches_page :index).
+
+Action Caching: Caches entire actions but checks authentication.
+
+Fragment Caching: Caches parts of a view:
+```
+<% cache @user do %>
+  <%= render @user.profile %>
+<% end %>
+```
+SQL Query Caching: Enabled by default in Rails.
+
+#### 5. RESTful API Design
+Versioning: /api/v1/users
+Security Considerations:
+Use JWT or OAuth2 for authentication.
+
+Add rate limiting with rack-attack.
+
+#### 6. Service Objects for Business Logic
+Service objects keep controllers clean:
+```
+class UserCreator
+  def initialize(user_params)
+    @user_params = user_params
+  end
+
+  def call
+    User.create(@user_params)
+  end
+end
+```
+Benefits: Reusable, testable, and scalable.
+
+#### 7. Nested Routes & Advanced Routing
+```
+resources :authors do
+  resources :books, only: [:index, :show]
+end
+```
+Use shallow routes to avoid deep nesting:
+```
+resources :books, shallow: true do
+  resources :reviews
+end
+```
+8. Polymorphic Associations
+Use when a model can belong to multiple models:
+```
+class Comment < ApplicationRecord
+  belongs_to :commentable, polymorphic: true
+end
+Example:
+
+class Post < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+
+class Video < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+```
+
+#### 9. N+1 Query Problem & Optimization
+Use includes or preload:
+```
+Post.includes(:comments).each do |post|
+  puts post.comments.count
+end
+```
+Use bullet gem to detect N+1.
+
+10. Database Transactions & Performance
+Wrap operations in transactions:
+```
+User.transaction do
+  user.update!(balance: user.balance - 100)
+  Payment.create!(user: user, amount: 100)
+end
+Indexing:
+add_index :orders, :user_id
+```
+#### 11. Caching in a Distributed Rails App
+Use Redis as a caching layer.
+
+Use low-level caching with Rails.cache.fetch.
+
+#### 12. Rails Security
+CSRF Protection: protect_from_forgery with: :exception
+
+XSS Protection: Use sanitize for user input.
+
+SQL Injection Prevention: Always use ActiveRecord’s query methods:
+
+User.where("email = ?", params[:email])
+13. REST vs. GraphQL
+REST: Good for simple CRUD APIs.
+
+GraphQL: Good for complex frontends needing flexible data fetching.
+
+#### 14. Scaling Rails
+Use read replicas and database sharding.
+
+Move long tasks to background jobs.
+
+#### 15. Handling Concurrency
+Use Redis locks to prevent race conditions.
+
+#### 16. Sharding in Rails
+Use octopus gem or Rails 6 multiple databases feature.
+
+#### 17. Rails Testing
+Unit tests: RSpec or Minitest
+
+Integration tests: Capybara
+
+Performance testing: Benchmark
+
+#### 18. Real-Time Features (ActionCable)
+```
+class ChatChannel < ApplicationCable::Channel
+  def subscribed
+    stream_from "chat_#{params[:room]}"
+  end
+end
+```
+Challenges: Scaling with Redis, handling connections.
+
+#### 19. Refactoring Legacy Rails Code
+Use rubocop for code consistency.
+
+Gradually introduce service objects.
+
+#### 20. Rails 6/7 Features
+Hotwire (Turbo & Stimulus)
+
+ActionText (Rich Text ing)
+
+ActionMailbox (Incoming Emails Handling)
+
+### Ruby-Specific Questions
+#### 1. Rack & Middleware
+Rack is a lightweight interface between web servers and Ruby frameworks.
+```
+Custom Middleware:
+
+class LoggerMiddleware
+  def initialize(app)
+    @app = app
+  end
+
+  def call(env)
+    Rails.logger.info "Request received: #{env['PATH_INFO']}"
+    @app.call(env)
+  end
+end
+```
+#### 2. N+1 Query
+Solved using includes, preload, or eager_load.
+
+#### 3. Concerns in Rails
+Use concerns for shared logic:
+```
+module Taggable
+  extend ActiveSupport::Concern
+
+  included do
+    has_many :tags
+  end
+end
+```
+#### 4. HABTM vs HMT
+HABTM: Direct many-to-many without extra fields.
+
+HMT: Uses a join model for additional attributes.
+
+#### 5. Class vs. Instance Variables
+```
+class User
+  @@class_var = "class var"
+  @instance_var = "instance var"
+end
+```
+#### 6. Mutable vs. Immutable in Ruby
+Strings are mutable, Numbers & Booleans are immutable.
+
+#### 7. Ruby GC (Garbage Collection)
+Ruby uses Mark-and-Sweep Garbage Collection.
+
+#### 8. include vs extend
+include adds instance methods.
+
+extend adds class methods.
+
+#### 9. Threads vs. Fibers
+Threads: Pre-emptive (run in parallel).
+
+Fibers: Cooperative (manual yielding).
+
+#### 10. Proc vs. Lambda
+Lambdas check arity (number of arguments), Procs don’t.
+
+### Final Questions
+#### Mass Assignment & Protection:
+
+
+params.require(:user).permit(:name, :email)
+CSRF Protection:
+
+
+protect_from_forgery with: :exception
+ActiveRecord Callbacks: before_save, after_commit, etc.
+
+Convention Over Configuration: Rails’ opinionated design.
+
+Difference Between save and save!: save! raises an exception on failure.
+
+Want Mock Interview Practice? 🔥
+I can generate Rails coding challenges or mock system design questions! 🚀
+
+
+
+
+
+
+
+#### Please share the type of associations in rails and how they are formed?
+📌 Associations in Rails and How They Are Formed
+Associations in Rails define relationships between models, allowing efficient data retrieval and manipulation.
+
+1. belongs_to Association
+```
+One-to-One or Many-to-One relationship
+```
+The child model holds the foreign key.
+
+Example: A Book belongs to an Author
+```
+class Book < ApplicationRecord
+  belongs_to :author
+end
+```
+```
+class Author < ApplicationRecord
+  has_many :books
+end
+```
+The books table must have an author_id column.
+
+Foreign key: author_id in books.
+
+```
+class AddAuthorToBooks < ActiveRecord::Migration[7.0]
+  def change
+    add_reference :books, :author, foreign_key: true
+  end
+end
+```
+#### 2. has_one Association
+One-to-One relationship
+
+The parent model has one associated record.
+
+Example: A User has one Profile
+```
+
+class User < ApplicationRecord
+  has_one :profile
+end
+
+class Profile < ApplicationRecord
+  belongs_to :user
+end
+Foreign key: user_id in profiles.
+
+
+class AddUserToProfiles < ActiveRecord::Migration[7.0]
+  def change
+    add_reference :profiles, :user, foreign_key: true
+  end
+end
+```
+
+####  3. has_many Association
+One-to-Many relationship
+
+A record has many related records.
+```
+Example: An Author has many Books
+
+class Author < ApplicationRecord
+  has_many :books
+end
+
+class Book < ApplicationRecord
+  belongs_to :author
+end
+Foreign key: author_id in books.
+```
+####  4. has_many :through Association
+Many-to-Many relationship with a join table containing additional attributes.
+
+Example: Doctor has many Patients through Appointments
+```
+class Doctor < ApplicationRecord
+  has_many :appointments
+  has_many :patients, through: :appointments
+end
+
+class Patient < ApplicationRecord
+  has_many :appointments
+  has_many :doctors, through: :appointments
+end
+
+class Appointment < ApplicationRecord
+  belongs_to :doctor
+  belongs_to :patient
+end
+Join table: appointments (with doctor_id and patient_id).
+
+class CreateAppointments < ActiveRecord::Migration[7.0]
+  def change
+    create_table :appointments do |t|
+      t.references :doctor, foreign_key: true
+      t.references :patient, foreign_key: true
+      t.datetime :appointment_date
+      t.timestamps
+    end
+  end
+end
+```
+#### 5. has_and_belongs_to_many (HABTM)
+Direct Many-to-Many relationship without additional attributes.
+
+Example: Students and Courses
+```
+class Student < ApplicationRecord
+  has_and_belongs_to_many :courses
+end
+
+class Course < ApplicationRecord
+  has_and_belongs_to_many :students
+end
+Requires a join table (courses_students) with no extra columns.
+
+class CreateCoursesStudentsJoinTable < ActiveRecord::Migration[7.0]
+  def change
+    create_join_table :courses, :students do |t|
+      t.index :course_id
+      t.index :student_id
+    end
+  end
+end
+```
+📝 HABTM vs. has_many :through
+
+Use has_many :through if the join table needs extra columns (e.g., appointments.date).
+
+Use HABTM if the join table is purely relational.
+
+####  6. polymorphic Association
+A model can belong to multiple other models using a single association.
+
+Example: A Comment can belong to both Post and Video
+```
+class Comment < ApplicationRecord
+  belongs_to :commentable, polymorphic: true
+end
+
+class Post < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+
+class Video < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+```
+The comments table has:
+
+commentable_type (stores "Post" or "Video")
+
+commentable_id (stores the related record’s ID)
+
+```
+class CreateComments < ActiveRecord::Migration[7.0]
+  def change
+    create_table :comments do |t|
+      t.text :body
+      t.references :commentable, polymorphic: true, index: true
+      t.timestamps
+    end
+  end
+end
+```
+####  7. self-join (Recursive Association)
+A model associates with itself.
+
+Example: Employees reporting to a Manager
+```
+class Employee < ApplicationRecord
+  belongs_to :manager, class_name: "Employee", optional: true
+  has_many :subordinates, class_name: "Employee", foreign_key: "manager_id"
+end
+```
+Foreign key: manager_id in employees.
+```
+class AddManagerToEmployees < ActiveRecord::Migration[7.0]
+  def change
+    add_reference :employees, :manager, foreign_key: { to_table: :employees }
+  end
+end
+```
+#### Summary Table
+```
+Association Type	      Description	                                Example
+belongs_to	            Child model holds foreign key	              Book belongs_to Author
+has_one	One-to-one	                                                User has_one Profile
+has_many	One-to-many	                                              Author has_many Books
+has_many :through	Many-to-many with join model	                    Doctor has_many Patients through Appointments
+has_and_belongs_to_many (HABTM)	Many-to-many without extra fields	  Students and Courses
+polymorphic	Model belongs to multiple types	Comment belongs_to      Post or Video
+self-join	Model relates to itself	                                  Employee belongs_to Manager
+```
+
+
