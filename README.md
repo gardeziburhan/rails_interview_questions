@@ -533,7 +533,7 @@ end
 
 #### 30. What is validates in Rails models?
 validates ensures data integrity before saving records.
-
+```
 class User < ApplicationRecord
   validates :name, presence: true, length: { minimum: 3 }
   validates :email, uniqueness: true
@@ -544,7 +544,7 @@ presence: true	Ensures value is present
 uniqueness: true	Ensures unique values
 length: { minimum: x }	Min character length
 format: { with: /regex/ }	Custom regex validation
-
+```
 
 #### 31. What is rescue_from, and how does it work?
 rescue_from handles exceptions globally in controllers.
