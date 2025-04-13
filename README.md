@@ -761,7 +761,9 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 #### What’s the difference between rake and rails commands?
 #### What are concerns, and when should they be used?
 
+
 ### ⚡ Performance & Scalability
+
 #### What techniques do you use to prevent N+1 queries?
 #### What is database sharding? How does Rails support it?
 #### How do you analyze slow database queries in Rails?
