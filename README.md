@@ -303,11 +303,12 @@ resources :articles → Generates RESTful routes
 
 ```
  What is the difference between render, redirect_to, and respond_to in controllers?
-Method	Purpose	Example
-render	Renders a template	render "show"
-redirect_to	Redirects to another URL	redirect_to articles_path
-respond_to	Responds with different formats (HTML, JSON)	`respond_to {
-
+```
+Method	      Purpose	                                        Example
+render	      Renders a template	                            render "show"
+redirect_to	  Redirects to another URL	                      redirect_to articles_path
+respond_to	  Responds with different formats (HTML, JSON)	`respond_to {
+```
 
 
 #### 15. What is flash in Rails? How is it different from session?
