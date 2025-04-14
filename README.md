@@ -947,6 +947,38 @@ Answer: "ensured" — ensure always runs last and overrides the return.
 #### What’s the difference between ||= and or=?
 #### Why might using Hash.new([]) cause unexpected behavior?
 
+### ✅ Basic Ruby Questions
+#### What are symbols in Ruby? How are they different from strings?
+#### What are the different types of variables in Ruby (local, instance, class, global)?
+#### What is the difference between ==, eql?, and equal??
+#### Explain the difference between puts, print, and p.
+#### What is a block, and how is it different from a Proc or a lambda?
+#### What is the use of the self keyword in Ruby?
+#### What is the difference between include and extend in modules?
+#### How does garbage collection work in Ruby?
+#### What’s the difference between nil, false, and undefined variable in Ruby?
+
+### 🔁 Intermediate Ruby Questions
+#### Explain how Ruby handles method overloading or default arguments.
+#### What is duck typing in Ruby? Give an example.
+#### How does Ruby handle inheritance and method resolution?
+#### What are singleton methods? When would you use them?
+#### What’s the difference between Proc.new, lambda, and the -> syntax?
+#### What are refinements in Ruby? Why would you use them instead of monkey-patching?
+#### What are the scopes of constants in Ruby (e.g., ::, nesting)?
+#### Explain what mixins are. How are they implemented in Ruby?
+#### How do you define and use custom enumerators in Ruby?
+
+### 🔬 Advanced Ruby Questions
+#### How would you implement your own version of each, map, or select without using Ruby's built-in methods?
+#### What are some metaprogramming techniques in Ruby? Show an example using define_method or method_missing.
+#### What is the difference between class variables (@@) and class instance variables (@ on the class)?
+#### How does Ruby’s method_missing work, and what are the risks?
+#### What’s the difference between eager and lazy enumerators in Ruby?
+#### How do fibers work in Ruby? What are they useful for?
+#### How would you optimize memory usage in a Ruby app that processes millions of records?
+#### What is the Global Interpreter Lock (GIL) in Ruby MRI? How does it affect threading?
+#### How would you implement a Domain-Specific Language (DSL) in Ruby?
 
 
 ### 📌 Live Coding Challenge Questions
