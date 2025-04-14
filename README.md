@@ -882,6 +882,72 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 #### What is a Ruby block, and how is it different from a Proc?
 #### What is the difference between tap, yield_self, and then in Ruby?
 
+### Core Ruby Questions
+#### How is memory management handled in Ruby?
+#### What’s the difference between dup and clone in Ruby?
+#### Explain the concept of object immutability in Ruby.
+#### What is the difference between super and super()?
+#### How does Ruby’s case statement work internally? Does it use == or ===?
+
+### 🧩 OOP and Design Questions
+#### What are the SOLID principles? Can you demonstrate one using Ruby?
+#### What’s the difference between a class variable and a class instance variable?
+#### When would you use method_missing vs define_method?
+#### How do modules affect the method lookup chain in Ruby?
+#### What is a mixin and when would you use it over inheritance?
+
+### 🧪 Testing and Tooling
+#### How would you test private methods in Ruby? Should you?
+#### Explain how RSpec matchers work and how to write custom matchers.
+#### What’s the difference between mocking and stubbing in tests?
+#### How do you test a class that uses metaprogramming or dynamic behavior?
+### 🔀 Enumerable and Functional Patterns
+#### What’s the difference between map, collect, each_with_object, and reduce?
+#### How would you reverse a linked list using only Ruby's Enumerable methods?
+#### Explain lazy evaluation in Ruby with an example.
+#### How would you implement your own version of zip or group_by?
+
+### 🧬 Metaprogramming & DSLs
+#### What are the risks of using eval in Ruby?
+#### Can you write a DSL for a pizza builder? (e.g., Pizza.new.size(:large).toppings(:olives, :cheese))
+#### How does method_missing affect performance and debuggability?
+#### When would you use class_eval vs define_singleton_method?
+#### Can you override send or respond_to?? When might you do that?
+
+### 🕹 Concurrency and System Design
+#### How would you handle thread safety in Ruby for shared data structures?
+#### What are Fibers and how are they different from Threads?
+#### Have you used Ractor in Ruby 3.x? How does it enable true parallelism?
+#### Design an in-memory rate limiter in Ruby (e.g., max 10 requests per minute per user).
+
+### 💡 Debugging and Performance
+#### How do you profile memory or CPU usage in a Ruby script?
+#### Explain the concept of memoization. How would you implement it manually?
+#### How do you reduce object allocation in a large loop?
+#### When and why would you freeze an object in Ruby?
+
+### 🔐 Trick Questions / Gotchas
+#### What will this return and why?
+
+```
+def weird
+  begin
+    raise "Oops"
+  rescue
+    return "rescued"
+  ensure
+    return "ensured"
+  end
+end
+
+puts weird  # => ???
+```
+Answer: "ensured" — ensure always runs last and overrides the return.
+
+#### What’s the difference between ||= and or=?
+#### Why might using Hash.new([]) cause unexpected behavior?
+
+
 
 ### 📌 Live Coding Challenge Questions
 #### Implement a caching mechanism in Rails without using built-in Rails caching.
