@@ -77,21 +77,6 @@
       - [What are the best practices for optimizing ActiveRecord queries?](#what-are-the-best-practices-for-optimizing-activerecord-queries)
       - [What’s the difference between connection\_pool and database.yml settings?](#whats-the-difference-between-connection_pool-and-databaseyml-settings)
       - [How do you handle large file uploads in Rails?](#how-do-you-handle-large-file-uploads-in-rails)
-      - [What’s the difference between synchronous and asynchronous processing in Rails?⚡ Performance \& Scalability](#whats-the-difference-between-synchronous-and-asynchronous-processing-in-rails-performance--scalability)
-      - [What techniques do you use to prevent N+1 queries?](#what-techniques-do-you-use-to-prevent-n1-queries-1)
-      - [What is database sharding? How does Rails support it?](#what-is-database-sharding-how-does-rails-support-it-1)
-      - [How do you analyze slow database queries in Rails?](#how-do-you-analyze-slow-database-queries-in-rails-1)
-      - [What is caching in Rails? How does fragment caching work?](#what-is-caching-in-rails-how-does-fragment-caching-work-1)
-      - [How do you handle background jobs at scale in Rails?](#how-do-you-handle-background-jobs-at-scale-in-rails-1)
-      - [What are the advantages and disadvantages of Sidekiq vs. Delayed Job vs. Resque?](#what-are-the-advantages-and-disadvantages-of-sidekiq-vs-delayed-job-vs-resque-1)
-      - [What is a Rails middleware? How do you add a custom middleware?](#what-is-a-rails-middleware-how-do-you-add-a-custom-middleware-1)
-      - [How do you scale a Rails application to handle high traffic?](#how-do-you-scale-a-rails-application-to-handle-high-traffic-1)
-      - [What are different types of caching available in Rails?](#what-are-different-types-of-caching-available-in-rails-1)
-      - [What is Puma? How does it improve Rails performance?](#what-is-puma-how-does-it-improve-rails-performance-1)
-      - [How does Rails handle HTTP/2 and WebSockets?](#how-does-rails-handle-http2-and-websockets-1)
-      - [What are the best practices for optimizing ActiveRecord queries?](#what-are-the-best-practices-for-optimizing-activerecord-queries-1)
-      - [What’s the difference between connection\_pool and database.yml settings?](#whats-the-difference-between-connection_pool-and-databaseyml-settings-1)
-      - [How do you handle large file uploads in Rails?](#how-do-you-handle-large-file-uploads-in-rails-1)
       - [What’s the difference between synchronous and asynchronous processing in Rails?](#whats-the-difference-between-synchronous-and-asynchronous-processing-in-rails)
     - [🛡️ Security \& Best Practices](#️-security--best-practices)
       - [What is CSRF, and how does Rails prevent it?](#what-is-csrf-and-how-does-rails-prevent-it)
@@ -1107,21 +1092,6 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 
 ### ⚡ Performance & Scalability
 
-#### What techniques do you use to prevent N+1 queries?
-#### What is database sharding? How does Rails support it?
-#### How do you analyze slow database queries in Rails?
-#### What is caching in Rails? How does fragment caching work?
-#### How do you handle background jobs at scale in Rails?
-#### What are the advantages and disadvantages of Sidekiq vs. Delayed Job vs. Resque?
-#### What is a Rails middleware? How do you add a custom middleware?
-#### How do you scale a Rails application to handle high traffic?
-#### What are different types of caching available in Rails?
-#### What is Puma? How does it improve Rails performance?
-#### How does Rails handle HTTP/2 and WebSockets?
-#### What are the best practices for optimizing ActiveRecord queries?
-#### What’s the difference between connection_pool and database.yml settings?
-#### How do you handle large file uploads in Rails?
-#### What’s the difference between synchronous and asynchronous processing in Rails?⚡ Performance & Scalability
 #### What techniques do you use to prevent N+1 queries?
 #### What is database sharding? How does Rails support it?
 #### How do you analyze slow database queries in Rails?
