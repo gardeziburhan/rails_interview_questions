@@ -900,8 +900,13 @@ rails	Runs commands (e.g., server, console)
 ```
 
 #### 🛠 1. Handling N+1 Queries (Optimization)
+To handle N+1 queries in Rails, We typically use eager loading with `includes`, `preload`, or `eager_load`. This ensures that associated records are fetched in a single query rather than one per record.
 ❌ Problem:
 ```
+# N+1 Issue
+Post.all.each do |post|
+  puts post.comments.count
+end
 users = User.all
 users.each do |user|
   puts user.posts.count
@@ -915,26 +920,177 @@ users = User.includes(:posts)  # Fetch users & posts in 1 query
 users.each do |user|
   puts user.posts.count  # Does not make extra queries
 end
+
+# Optimized with eager loading
+Post.includes(:comments).each do |post|
+  puts post.comments.count
+end
 ```
 👉 includes loads the associated records efficiently.
+`preload`:
+
+Use when: You want to load the associations in a separate query (good for simple display, not for SQL conditions on joined tables).
+
+```
+# This will run two queries:
+# 1. SELECT * FROM posts
+# 2. SELECT * FROM comments WHERE post_id IN (...)
+
+posts = Post.preload(:comments)
+posts.each do |post|
+  post.comments.each do |comment|
+    puts comment.body
+  end
+end
+```
+`eager_load`:
+Use when: You want to avoid N+1 and also filter or sort based on associated table columns using a single SQL query with a JOIN.
+```
+# This performs a LEFT OUTER JOIN in one SQL query
+posts = Post.eager_load(:comments).where("comments.created_at > ?", 1.week.ago)
+
+posts.each do |post|
+  post.comments.each do |comment|
+    puts comment.body
+  end
+end
+```
+This is helpful when the query involves conditions on the joined table (comments), and Rails handles the LEFT OUTER JOIN automatically.
+```
+Summary:
+Method	      Type of Query	              Use Case
+includes	  Smartly chooses join/preload	Safe default for most use cases
+preload	    Separate queries	            Display data without filtering/sorting on join
+eager_load	Single joined query	          Needed when filtering/sorting using joined table
+```
 
 #### 🛠 2. Implementing Caching in Rails
 🔹 Fragment Caching
+
+Use case: You want to cache a specific section of the view, like a post card or sidebar, to avoid rendering it again and again.
+
+How it works:
+
+Rails generates a cache key for the object (like views/posts/123-20250422113000) based on its class, ID, and updated_at timestamp. If the key exists in the cache store, it reuses the HTML output instead of rerendering.
+
+Cache key tip:
+
+Rails automatically uses cache_key_with_version (e.g., posts/123-20250422120000) so you don’t need to manually manage invalidation unless you have custom logic.
 ```
-<% cache @article do %>
-  <h1><%= @article.title %></h1>
-  <p><%= @article.content %></p>
-<% end %>
+- cache @post do
+  .post
+    %h2= @post.title
+    %p= @post.body
+
+Best practices:
+Use meaningful keys if you're caching non-record-based content:
+
+
+- cache ['sidebar', current_user.role] do
+  = render 'shared/sidebar'
+
+```
+🔹 Russian Doll Caching:
+
+Use case: 
+
+Your view has multiple nested partials (e.g., posts with comments), and you want to cache each layer separately to avoid cache invalidation of the entire block.
+
+Why it's powerful:
+
+If a comment changes, only the comment block cache is invalidated, not the entire post. Rails handles this efficiently using cache keys with timestamps.
+```
+- cache @post do
+  .post
+    %h2= @post.title
+    %p= @post.body
+
+    - cache @post.comments do
+      .comments
+        = render @post.comments
+
+In the above example:
+
+If @post.updated_at changes → outer cache invalidated.
+
+If a comment changes → only @post.comments cache is invalidated.
+
+
 ```
 👉 Caches the HTML output of the article block.
+
 🔹 Low-Level Caching
+
+Use case: When you want to cache arbitrary data — like a set of records, a computed value, or external API results — at the controller or model level.
+
+How it works:
+
+You manually define a cache key and use Rails.cache.fetch to store and retrieve data. If the key is not present in the cache, the block is executed and the result is cached.
+
+Example – Top Posts:
 ```
+# In controller or service object
+def top_posts
+  Rails.cache.fetch("top_posts", expires_in: 12.hours) do
+    Post.order(views: :desc).limit(10).to_a
+  end
+end
+- This avoids hitting the DB every time users visit the homepage or dashboard.
+
+You can add user-specific or context-specific info to the key:
+
+Rails.cache.fetch(["top_posts", current_user.role], expires_in: 6.hours) do
+  Post.visible_to(current_user).order(created_at: :desc).limit(10)
+end
+
 Rails.cache.fetch("recent_articles", expires_in: 10.minutes) do
   Article.order(created_at: :desc).limit(5)
 end
-```
 👉 Caches query results for 10 minutes.
 
+```
+🔹 HTTP Caching
+
+Use case: When you want to reduce bandwidth and avoid unnecessary re-rendering by allowing browsers or CDNs to use cached versions of your content.
+
+Rails provides built-in helpers like `fresh_when` and `stale?` to implement this based on the record’s `updated_at` timestamp and `cache_key`.
+
+Example using fresh_when:
+```
+def show
+  @article = Article.find(params[:id])
+  fresh_when(@article)  # Sets ETag and Last-Modified headers
+end
+If the content hasn’t changed since the last request, Rails will respond with 304 Not Modified, skipping the view rendering.
+```
+Example using stale?:
+```
+def show
+  @article = Article.find(params[:id])
+  if stale?(@article)
+    render :show
+  end
+end
+stale? checks if the content is outdated and only renders if necessary.
+```
+Production Cache Store
+In production, I typically configure a high-performance cache backend:
+
+Redis: Great for both caching and session storage. It supports advanced features like key expiry, namespaces, etc.
+
+Memcached: Lightweight and super-fast, good for ephemeral cache use cases.
+
+Example in config/environments/production.rb:
+```
+config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
+```
+
+Pro Tips:
+Enable config.action_controller.perform_caching = true in development to test this.
+
+Use tools like rack-mini-profiler or fragment-cacher to inspect which fragments are being hit or missed.
+
+Keep cache blocks small and specific—avoid putting entire pages inside one cache block unless absolutely necessary.
 
 
 🚀 𝗟𝗲𝘃𝗲𝗹 𝗨𝗽 𝗬𝗼𝘂𝗿 𝗥𝗮𝗶𝗹𝘀 𝗞𝗻𝗼𝘄𝗹𝗲𝗱𝗴𝗲 𝘄𝗶𝘁𝗵 𝗧𝗵𝗲𝘀𝗲 𝗜𝗻𝘁𝗲𝗿𝘃𝗶𝗲𝘄 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻𝘀 🚀
@@ -1074,20 +1230,369 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 
 ### 🛠 Core Rails Questions
 #### How does Rails handle database connection pooling?
-#### Explain the difference between joins, includes, preload, and eager_load.
-#### How does Rails’ autoloading work? What changed in Zeitwerk?
+What is Database Connection Pooling?
+
+Database connection pooling is a technique where a fixed number of database connections are maintained and reused across requests. Instead of opening and closing a connection for each request (which is expensive), Rails maintains a "pool" of open connections to improve performance and reduce overhead.
+
+Rails uses ActiveRecord’s built-in connection pool, which is managed by ActiveRecord::ConnectionAdapters::ConnectionPool. Here's how it works under the hood:
+
+Pool Initialization:
+
+When the app boots, Rails reads the config/database.yml file and initializes a connection pool per environment (and per role/shard if you're using multi-DB).
+
+Per-thread: Checkout Each thread (e.g., Puma worker thread) checks out a connection from the pool when needed. The same thread reuses that connection throughout the request.
+
+Connection Checkout and Check-in:
+
+When a request begins → Rails checks out a connection.
+
+When the request ends → Rails checks it back into the pool.
+
+If all connections are in use, new threads will wait (up to a timeout) for a connection to free up.
+
+Connection Pool Settings (from database.yml)
+```
+production:
+  adapter: postgresql
+  database: myapp_production
+  pool: 15       # number of connections
+  timeout: 5000  # wait time (ms) before raising a timeout error
+```
+
+
+Common Issues
+1. Too Small Pool Size
+
+If your app handles many concurrent requests, and your pool size is too low, you’ll see:
+```
+ActiveRecord::ConnectionTimeoutError: could not obtain a database connection within 5 seconds
+```
+2. Too Large Pool Size
+
+Oversizing the pool can exhaust the database's max connections, especially if you scale horizontally.
+
+Summary:
+
+Rails maintains a per-thread connection pool using ActiveRecord.
+
+Connections are checked out at request start and checked in at the end.
+
+You configure the pool size and timeout in database.yml.
+
+Tuning the pool size is critical for performance and stability in production environments.
+
+
 #### What are ActiveRecord callbacks? When should you avoid them?
+ActiveRecord callbacks are lifecycle hooks in Rails that allow you to run code before or after certain events on a model — such as create, update, save, or destroy.
+
+They’re used to encapsulate logic that is tightly coupled to a model's data lifecycle.
+
+Common Callbacks:
+```
+class Post < ApplicationRecord
+  before_save :generate_slug
+  after_create :send_notification
+  before_destroy :log_deletion
+end
+```
+eg:
+```
+before_validation, after_save, after_create, before_update, before_destroy etc
+```
+
+When to Use Them:
+
+Auto-generating fields (e.g., slugs, tokens)
+
+Logging/auditing changes
+
+Sending notifications or triggering side effects after save
+
+Enforcing business rules closely tied to the model’s lifecycle
+
+When to Avoid Callbacks (Best Practices):
+
+Complex Business Logic:
+
+➤ Move logic into service objects or jobs.
+
+Callbacks can make models "do too much" and harder to test/debug.
+
+
 #### What are ActiveSupport Concerns? How do they differ from modules?
+What are ActiveSupport::Concerns?
+ActiveSupport::Concern is a Rails helper module that provides a clean and structured way to write reusable code (usually shared logic) and include it into models, controllers, or other classes.
+
+It builds on Ruby’s native Module but adds a few Rails-specific conveniences for:
+
+Organizing code more cleanly
+
+Hooking into lifecycle methods (included, class_methods)
+
+Avoiding tricky included do blocks and meta-programming
+
+Basic Structure of a Concern
+```
+module Archivable
+  extend ActiveSupport::Concern
+
+  included do
+    scope :archived, -> { where(archived: true) }
+  end
+
+  def archive!
+    update(archived: true)
+  end
+
+  module ClassMethods
+    def recently_archived
+      where("archived_at >= ?", 1.week.ago)
+    end
+  end
+end
+```
+
+How It Differs From a Plain Ruby Module:
+Feature                               	Module	          ActiveSupport::Concern
+Basic inclusion	                         ✅ Yes	          ✅ Yes
+Clean included do syntax	               ❌ No	            ✅ Yes
+Handles ClassMethods automatically	     ❌ No	            ✅ Yes
+Designed for Rails (scopes, callbacks)	 ❌ No	            ✅ Yes
+Explicit load order safety	             ❌ Risk of bugs	  ✅ Prevents common issues
+
+
+Example Use Case: Archivable Records
+```
+Imagine you have multiple models (like Post, Comment, Document) that need to support archiving — a common behavior with archived: true/false.
+
+We’ll extract this logic into a reusable concern called Archivable.
+Step 1: Create the Concern
+
+
+# app/models/concerns/archivable.rb
+module Archivable
+  extend ActiveSupport::Concern
+
+  included do
+    scope :archived, -> { where(archived: true) }
+    scope :unarchived, -> { where(archived: false) }
+  end
+
+  def archive!
+    update(archived: true)
+  end
+
+  def unarchive!
+    update(archived: false)
+  end
+
+  def archived?
+    archived
+  end
+end
+
+Step 2: Include it in your model
+
+# app/models/post.rb
+class Post < ApplicationRecord
+  include Archivable
+
+  # other associations, validations, etc.
+end
+
+# app/models/comment.rb
+class Comment < ApplicationRecord
+  include Archivable
+
+  # other logic
+end
+
+Step 3: Use it in Your Application
+
+# Archive a post
+post = Post.find(params[:id])
+post.archive!
+
+# List only archived posts
+Post.archived
+
+# Check if a comment is archived
+comment.archived?
+
+# Get all unarchived comments
+Comment.unarchived
+```
+
+
 #### What is the purpose of Rails engines? When would you use one?
+
 #### How does Rails handle has_many :through vs. has_and_belongs_to_many?
+Both are used to set up many-to-many relationships in Rails, but they differ in flexibility and use case.
+
+has_and_belongs_to_many (HABTM):
+
+Direct many-to-many association with no intermediate model.
+
+Uses a join table (e.g., students_courses) without a corresponding model.
+```
+# app/models/student.rb
+class Student < ApplicationRecord
+  has_and_belongs_to_many :courses
+end
+
+# app/models/course.rb
+class Course < ApplicationRecord
+  has_and_belongs_to_many :students
+end
+```
+Requires a join table migration:
+```
+create_join_table :students, :courses
+```
+Limitations:
+
+Cannot store additional data (e.g., enrollment date, grade) on the relationship.
+
+Less flexible for validations and callbacks.
+
+has_many :through
+Uses an intermediate model to manage the relationship.
+
+Ideal when you need to store extra data or add logic to the join.
+```
+# app/models/student.rb
+class Student < ApplicationRecord
+  has_many :enrollments
+  has_many :courses, through: :enrollments
+end
+
+# app/models/enrollment.rb
+class Enrollment < ApplicationRecord
+  belongs_to :student
+  belongs_to :course
+
+  # extra fields: enrolled_at, grade, etc.
+end
+
+# app/models/course.rb
+class Course < ApplicationRecord
+  has_many :enrollments
+  has_many :students, through: :enrollments
+end
+```
+Advantages:
+
+More powerful and flexible
+
+Allows custom validations, callbacks, and extra attributes on the join model
+
+Summary:
+```
+Feature	                    has_and_belongs_to_many	  has_many :through
+Join Table	                         Yes (no model)	   Yes (with model)
+Extra Attributes	                  ❌ Not possible	  ✅ Yes
+Validations/Callbacks             	❌ No	            ✅ Yes
+Preferred for	                      Simple joins	     Complex logic, extra fields
+```
+
 #### What’s the difference between belongs_to and has_one?
-#### What are Rails observers, and why are they deprecated?
-#### How does the Rails asset pipeline work?
+These are both one-to-one associations but from opposite directions:
+
+belongs_to
+
+Declares ownership from the child side.
+
+The table has the foreign key column.
+
+Used when the current model "belongs to" another.
+
+```
+class Order < ApplicationRecord
+  belongs_to :user  # foreign key: user_id
+end
+```
+has_one:
+
+Declares ownership from the parent side.
+
+Points to a related record that exists only once.
+
+Often used when you want to access a related model from the owning model.
+```
+class User < ApplicationRecord
+  has_one :profile
+end
+```
+```
+✅ Summary:
+
+Feature	                  belongs_to	                  has_one
+Owns the FK	                  ✅ Yes	                    ❌ No
+Declares on	              Child model	                  Parent model
+Association direction	    Inward	                      Outward
+Example	                  Order → belongs_to :user  	  User → has_one :profile
+```
+
 #### What are different ways to manage configurations in Rails (secrets.yml, credentials.yml.enc, ENV variables)?
+Rails provides several ways to manage sensitive data and environment-specific settings like API keys, database credentials, and secret tokens.
+
+1. secrets.yml (Rails < 5.2)
+Located in config/secrets.yml
+
+Used for storing application secrets per environment.
+
+Loaded via Rails.application.secrets[:your_key]
+
+Example:
+```
+production:
+  secret_key_base: <%= ENV["SECRET_KEY_BASE"] %>
+  stripe_secret: <%= ENV["STRIPE_SECRET"] %>
+```
+Deprecated in favor of credentials.yml.enc in Rails 5.2+
+
+ 2. credentials.yml.enc (Rails 5.2+)
+Encrypted file managed by Rails for storing secrets.
+
+Decrypted using the master key (config/master.key) or ENV["RAILS_MASTER_KEY"].
+
+Location:
+
+config/credentials.yml.enc
+
+Decrypted with: rails credentials:edit
+
+Example:
+```
+aws:
+  access_key_id: 123
+  secret_access_key: 456
+
+stripe:
+  secret_key: sk_test_123
+```
+Access:
+```
+Rails.application.credentials.aws[:access_key_id]
+Rails.application.credentials[:stripe][:secret_key]
+```
+Recommended for most applications unless using multi-environment credentials (see below).
+```
+Use Case                                        	Recommended Approach
+Small to medium app with default secrets	        credentials.yml.enc
+Separate dev, staging, and prod credentials	      Multi-env credentials
+Secrets managed externally (Heroku, AWS, Docker)	ENV variables
+Legacy apps (Rails < 5.2)	                        secrets.yml (legacy only)
+```
+
 #### What is the difference between dependent: :destroy, dependent: :delete_all, and dependent: :nullify?
 #### How do you implement state machines in Rails (e.g., AASM, workflow gem)?
 #### What’s the difference between rake and rails commands?
 #### What are concerns, and when should they be used?
+#### Explain the difference between joins, includes, preload, and eager_load.
+#### How does Rails’ autoloading work? What changed in Zeitwerk?
+#### What are Rails observers, and why are they deprecated?
+#### How does the Rails asset pipeline work?
 
 
 ### ⚡ Performance & Scalability
@@ -1176,15 +1681,107 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 #### What is the difference between Proc and Lambda?
 #### What is the difference between include, extend, and prepend?
 #### How does Ruby garbage collection (GC) work?
+
+How It Works (Conceptually)
+
+Ruby’s GC follows a "mark-and-sweep" algorithm, with enhancements in newer versions:
+
+Mark Phase
+
+Ruby walks through all "reachable" objects — starting from root references (like global variables, method stacks, etc.).
+
+Marks them as "in use."
+
+Sweep Phase
+
+All objects that weren’t marked are considered unused and are freed from memory.
+
 #### What is the difference between Thread and Fiber?
 #### What are Ruby metaprogramming techniques?
 #### What are method_missing and respond_to_missing?
+These are part of Ruby’s dynamic method handling. They allow objects to respond to method calls even if those methods are not explicitly defined — a key part of Ruby's metaprogramming capabilities.
+
+method_missing:
+
+A special method you can override to intercept calls to undefined methods.
+
+Commonly used in dynamic proxies, DSLs, or delegators.
+
+respond_to_missing?
+
+Used in combination with method_missing to make respond_to? return true for dynamically handled methods.
+
+Helps tools like irb, introspection, and method lookup work correctly.
+
 #### What are singleton classes and eigenclasses in Ruby?
 #### What is duck typing in Ruby?
+In Ruby, an object’s type doesn’t matter — what matters is whether it responds to the methods you need.
+
+```
+def make_sound(animal)
+  animal.sound
+end
+
+class Dog
+  def sound
+    "Bark"
+  end
+end
+
+class Cat
+  def sound
+    "Meow"
+  end
+end
+
+make_sound(Dog.new)  # => "Bark"
+make_sound(Cat.new)  # => "Meow"
+```
+make_sound doesn’t care whether the object is a Dog or Cat, as long as it responds to #sound.
+
+Benefits of Duck Typing:
+
+Flexible: No strict interfaces required
+
+Clean code: Less boilerplate
+
+Powerful metaprogramming
+
 #### How does Ruby handle method lookup and method resolution order (MRO)?
 #### How does module_function work in Ruby?
 #### What is the difference between public, private, and protected methods?
+public (default):
+
+Methods are accessible from anywhere — inside or outside the class.
+
+All instance methods are public by default unless specified otherwise.
+
+private:
+
+Can only be called within the context of self, and without an explicit receiver.
+
+Typically used for internal logic that shouldn’t be accessed externally.
+
+protected:
+Can be called within the same class or its subclasses, even with an explicit receiver — but only if the receiver is an instance of the same class.
+
+```
+Summary:
+
+Modifier	                      Access From	      Explicit Receiver Allowed?	      Use Case
+public	                        Anywhere	           ✅ Yes	                       Normal API methods
+private	                         Within class	         ❌ No	                        Internal helpers
+protected	                      Same class/subclass   	✅ Yes (if same class)	    Comparisons, shared logic
+```
 #### What is the difference between class_variable, instance_variable, and global_variable?
+
+```
+Summary:
+Variable          Type	       Prefix	Scope	                Shared? 	Usage
+Instance Variable	@	            Per object	                ❌ No	  Object state
+Class Variable	  @@	        Shared in class & subclasses	✅ Yes	Global class-level count, config
+Global Variable	  $	            Everywhere in program	       ✅ Yes (global)	Avoid unless absolutely necessary
+```
 #### What is monkey patching, and when should you avoid it?
 #### What are refinements in Ruby?
 #### How do you implement multiple inheritance in Ruby?
@@ -1199,6 +1796,48 @@ Use sharding when dealing with high-volume, multi-tenant, or geographically dist
 #### What’s the difference between dup and clone in Ruby?
 #### Explain the concept of object immutability in Ruby.
 #### What is the difference between super and super()?
+super:
+
+Passes all arguments that were passed to the current method to the superclass method automatically.
+
+If the superclass method accepts those arguments, it works as expected.
+```
+class Parent
+  def greet(name)
+    "Hello, #{name}"
+  end
+end
+
+class Child < Parent
+  def greet(name)
+    super   # passes `name` automatically
+  end
+end
+
+Child.new.greet("Alice")  # => "Hello, Alice"
+```
+
+
+super():
+
+Passes no arguments at all to the superclass method.
+
+Use this when the superclass method does not expect arguments, or when you want to override without forwarding arguments.
+```
+class Parent
+  def greet
+    "Hello!"
+  end
+end
+
+class Child < Parent
+  def greet(name)
+    super() + " I'm #{name}."
+  end
+end
+
+Child.new.greet("Alice")  # => "Hello! I'm Alice."
+```
 #### How does Ruby’s case statement work internally? Does it use == or ===?
 
 ### 🧩 OOP and Design Questions
