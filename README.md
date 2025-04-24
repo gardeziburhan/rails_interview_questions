@@ -1351,7 +1351,7 @@ module Archivable
   end
 end
 ```
-
+```
 How It Differs From a Plain Ruby Module:
 Feature                               	Module	          ActiveSupport::Concern
 Basic inclusion	                         ✅ Yes	          ✅ Yes
@@ -1359,7 +1359,7 @@ Clean included do syntax	               ❌ No	            ✅ Yes
 Handles ClassMethods automatically	     ❌ No	            ✅ Yes
 Designed for Rails (scopes, callbacks)	 ❌ No	            ✅ Yes
 Explicit load order safety	             ❌ Risk of bugs	  ✅ Prevents common issues
-
+```
 
 Example Use Case: Archivable Records
 ```
